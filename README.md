@@ -1,3 +1,274 @@
+# 项目要求
+## MyReads: A Book Lending App
+
+1. 把代码组件化,观察代码发现这个是重复的
+
+```
+                <div className="bookshelf">
+                  <h2 className="bookshelf-title">Currently Reading</h2>
+                  <div className="bookshelf-books">
+                    <ol className="books-grid">
+                      <li>
+                        <div className="book">
+                          <div className="book-top">
+                            <div className="book-cover" style={{ width: 128, height: 193, backgroundImage: 'url("http://books.google.com/books/content?id=PGR2AwAAQBAJ&printsec=frontcover&img=1&zoom=1&imgtk=AFLRE73-GnPVEyb7MOCxDzOYF1PTQRuf6nCss9LMNOSWBpxBrz8Pm2_mFtWMMg_Y1dx92HT7cUoQBeSWjs3oEztBVhUeDFQX6-tWlWz1-feexS0mlJPjotcwFqAg6hBYDXuK_bkyHD-y&source=gbs_api")' }}></div>
+                            <div className="book-shelf-changer">
+                              <select>
+                                <option value="none" disabled>Move to...</option>
+                                <option value="currentlyReading">Currently Reading</option>
+                                <option value="wantToRead">Want to Read</option>
+                                <option value="read">Read</option>
+                                <option value="none">None</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="book-title">To Kill a Mockingbird</div>
+                          <div className="book-authors">Harper Lee</div>
+                        </div>
+                      </li>
+                      <li>
+                        <div className="book">
+                          <div className="book-top">
+                            <div className="book-cover" style={{ width: 128, height: 188, backgroundImage: 'url("http://books.google.com/books/content?id=yDtCuFHXbAYC&printsec=frontcover&img=1&zoom=1&imgtk=AFLRE72RRiTR6U5OUg3IY_LpHTL2NztVWAuZYNFE8dUuC0VlYabeyegLzpAnDPeWxE6RHi0C2ehrR9Gv20LH2dtjpbcUcs8YnH5VCCAH0Y2ICaKOTvrZTCObQbsfp4UbDqQyGISCZfGN&source=gbs_api")' }}></div>
+                            <div className="book-shelf-changer">
+                              <select>
+                                <option value="none" disabled>Move to...</option>
+                                <option value="currentlyReading">Currently Reading</option>
+                                <option value="wantToRead">Want to Read</option>
+                                <option value="read">Read</option>
+                                <option value="none">None</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="book-title">Ender's Game</div>
+                          <div className="book-authors">Orson Scott Card</div>
+                        </div>
+                      </li>
+                    </ol>
+                  </div>
+                </div>Ï
+```
+分成两个单个的组件 - Book.jsx 展示一个本书的书名、作者、封面图、当前类别
+
+```
+# Files: /src/components/Book.jsx
+
+import React from 'react'
+import PropTypes from 'prop-types'
+
+class Book extends React.Component {
+    render() {
+        const { onUpdateShelf } = this.props
+
+        return (
+            <div className="book">
+                <div className="book-top">
+                    <div className="book-cover" style={{ width: 128, height: 193, backgroundImage: `url(${this.props.book.imageLinks.smallThumbnail})` }}></div>
+                    <div className="book-shelf-changer">
+                        <select value={this.props.book.shelf} onChange={(e)=>onUpdateShelf(this.props.book.id,e.target.value)}>
+                            <option value="none" disabled>Move to...</option>
+                            <option value="currentlyReading">Currently Reading</option>
+                            <option value="wantToRead">Want to Read</option>
+                            <option value="read">Read</option>
+                            <option value="none">None</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="book-title">{this.props.book.title}</div>
+                <div className="book-authors">{this.props.book.authors}</div>
+            </div>
+        )
+    }
+}
+
+Book.propTypes = {
+    onUpdateShelf: PropTypes.func.isRequired,
+}
+
+export default Book
+```
+
+把书籍用列表项展示出来 - BookList.jsx
+
+```
+# Files: /src/components/BookList.jsx
+
+import React from 'react'
+import { Link } from 'react-router-dom'
+import Book from './Book'
+import * as BooksAPI from '../BooksAPI'
+
+class BookList extends React.Component {
+    constructor(props){
+        super(props)
+        this.state = {
+            currentlyReading: [],
+            wantToRead: [],
+            read: [],
+            none: [],
+        }
+    }
+    componentDidMount(){
+        this.getBookList()
+    }
+    getBookList = () => {
+        BooksAPI.getAll().then((books) => {
+            this.setState({ currentlyReading: books.filter((book)=>book.shelf==='currentlyReading')})
+            this.setState({ wantToRead: books.filter((book)=>book.shelf==='wantToRead')})
+            this.setState({ read: books.filter((book)=>book.shelf==='read')})            
+        })
+    }
+    updateBookShelf = (id, shelf) => {
+        let books = this.state.currentlyReading.concat(this.state.wantToRead).concat(this.state.read)
+        BooksAPI.update(books.find((b)=>b.id===id), shelf).then((updatedShelf) => {
+            this.getBookList()
+        })
+    }
+    render() {
+        return (
+            <div className="list-books">
+              <div className="list-books-title">
+                <h1>MyReads</h1>
+              </div>
+              <div className="list-books-content">
+                <div>
+                  <div className="bookshelf">
+                    <h2 className="bookshelf-title">正在阅读</h2>
+                    <div className='bookshelf-books'>
+                        <ol className='books-grid'>
+                            {this.state.currentlyReading.map((book)=>(
+                                <Book key={book.id} book={book} onUpdateShelf={this.updateBookShelf} />
+                            ))}
+                        </ol>
+                    </div>
+                  </div>
+                  <div className="bookshelf">
+                    <h2 className="bookshelf-title">想要阅读</h2>
+                    <div className='bookshelf-books'>
+                        <ol className='books-grid'>
+                            {this.state.wantToRead.map((book)=>(
+                                <Book key={book.id} book={book} onUpdateShelf={this.updateBookShelf} />
+                            ))}
+                        </ol>
+                    </div>
+                  </div>
+                  <div className="bookshelf">
+                    <h2 className="bookshelf-title">已阅读</h2>
+                    <div className='bookshelf-books'>
+                        <ol className='books-grid'>
+                            {this.state.read.map((book)=>(
+                                <Book key={book.id} book={book} onUpdateShelf={this.updateBookShelf} />
+                            ))}
+                        </ol>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="open-search">
+                <Link to='/search'>Add a book</Link>
+              </div>
+            </div>
+        )
+    }
+}
+
+export default BookList
+```
+发现上面的代码 bookshelf 部分是重复的，正在阅读，已阅读和想要阅读部分
+
+然后书写 查询的组件代码 searchbook.jsx
+
+```
+# File: /src/components/SearchBook.jsx
+
+import React from 'react'
+import { Link } from 'react-router-dom'
+import Book from './Book'
+import * as BooksAPI from '../BooksAPI'
+
+class SearchBook extends React.Component {
+    constructor(prop){
+        super(prop)
+        this.state = {
+            query: '',
+            results: [],
+            myBooks: [],
+        }
+    }
+    componentDidMount(){
+        this.getBooks()
+    }
+    getBooks = () => {
+        BooksAPI.getAll().then((myBooks)=>{
+            this.setState({myBooks})
+        })
+    }
+    updateQuery = (query) => {
+        this.setState({ query })
+        if(query === ''){
+            this.setState({ results: [] })
+        }
+        this.search(query)
+    }
+    search = (query) => {
+        if(query){
+            BooksAPI.search(query).then((results)=>{
+                if(results.length){
+                    this.setState({ results: results })
+                }else{
+                    this.setState({ results: [] })                    
+                }
+            })
+        }
+    }
+    updateBookShelf = (id, shelf) => {
+        let newResults = this.state.results
+        let book = newResults.find((b)=>b.id===id)
+        book.shelf = shelf
+        this.setState((state) => ({
+            results: newResults
+        }))
+        BooksAPI.update(book, shelf)
+        this.getBooks()
+    }
+    render() {
+        this.state.results.map(result=>{
+            result.shelf='none'
+            this.state.myBooks.forEach(myBook => {
+                if(result.id===myBook.id){
+                    result.shelf = myBook.shelf
+                }
+            })
+            return result
+        })
+        return (
+            <div className='search-books'>
+                <div className='search-books-bar'>
+                    <Link className='close-search' to='/'>Close</Link>
+                    <div className="search-books-input-wrapper">
+                        <input type="text" placeholder="Search by title or author"
+                            value={this.state.query}
+                            onChange={event => { this.updateQuery(event.target.value) }} />
+                    </div>
+                </div>
+                <div className="search-books-results">
+                    <ol className="books-grid">
+                        {this.state.results.map((book) => (
+                            <Book key={book.id} book={book} onUpdateShelf={this.updateBookShelf} />
+                        ))}
+                    </ol>
+                </div>
+            </div>
+        )
+    }
+}
+
+export default SearchBook
+```
+发现上面代码中更新onUpdateShelf是和BookList中是重复的，应该把它们提取出来
+
+
+
 # MyReads Project
 
 This is the starter template for the final assessment project for Udacity's React Fundamentals course. The goal of this template is to save you time by providing a static example of the CSS and HTML markup that may be used, but without any of the React code that is needed to complete the project. If you choose to start with this template, your job will be to add interactivity to the app by refactoring the static code in this template.
